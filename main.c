@@ -668,7 +668,7 @@ int main() {
 		{ TOOL_SHAPE , { 0,  16, 16, 16 }, 3, {
 			{ "Border", UI_SLIDER, .data.slider = { 1.0, 1.0f, 10.0f } },
 			{ "Filled", UI_TOGGLE, .data.toggle = { false } },
-			{ "Shape",  UI_CHOICE, .data.choice = { 0, 3, (const char*[]){ "Box", "Circle", "Line" }, false } },
+			{ "Shape",  UI_CHOICE, .data.choice = { 0, 3, (const char*[]){ "Rectangle", "Circle", "Line" }, false } },
 		}},
 	}};
 
