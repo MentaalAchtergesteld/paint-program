@@ -4,7 +4,7 @@ INCLUDES = -I.
 
 LDFLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
-SRC = main.c
+SRC = main.c gui.h
 OUT = paint
 
 all: $(OUT)

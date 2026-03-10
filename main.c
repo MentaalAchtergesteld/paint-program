@@ -6,6 +6,9 @@
 #include <string.h>
 #include <math.h>
 
+#define GUI_IMPL
+#include "gui.h"
+
 // TYPES
 
 typedef enum {
@@ -152,124 +155,6 @@ ToolDef *GetActiveTool(ToolboxState *state) {
 	return &state->tools[state->selected];
 }
 
-// GUI
-
-void DrawRaisedPanel(Rectangle r) {
-    DrawRectangleRec(r, WIN_BG);
-    DrawRectangle(r.x, r.y, r.width, 1, WIN_HI);                 
-    DrawRectangle(r.x, r.y, 1, r.height, WIN_HI);                
-    DrawRectangle(r.x, r.y + r.height - 1, r.width, 1, WIN_DARK);
-    DrawRectangle(r.x + r.width - 1, r.y, 1, r.height, WIN_DARK);
-    DrawRectangle(r.x + 1, r.y + r.height - 2, r.width - 2, 1, WIN_SHADOW); 
-    DrawRectangle(r.x + r.width - 2, r.y + 1, 1, r.height - 2, WIN_SHADOW);
-}
-
-void DrawSunkenPanel(Rectangle r) {
-    DrawRectangleRec(r, WIN_BG);
-    DrawRectangle(r.x, r.y, r.width, 1, WIN_SHADOW);             
-    DrawRectangle(r.x, r.y, 1, r.height, WIN_SHADOW);            
-    DrawRectangle(r.x, r.y + r.height - 1, r.width, 1, WIN_HI);  
-    DrawRectangle(r.x + r.width - 1, r.y, 1, r.height, WIN_HI);  
-    DrawRectangle(r.x + 1, r.y + 1, r.width - 2, 1, WIN_DARK);
-    DrawRectangle(r.x + 1, r.y + 1, 1, r.height - 2, WIN_DARK);
-}
-
-bool GuiSlider(Rectangle bounds, float *value, float min, float max) {
-	bool changed = false;
-	
-	Vector2 mousePos = GetMousePosition();
-	Rectangle track = { bounds.x, bounds.y, bounds.width, 8 };
-	DrawSunkenPanel(track);
-
-	float percent = (*value - min) / (max - min);
-	Rectangle handle = { track.x + (percent * (track.width-10)), track.y - 2, 10, 12 };
-	DrawRaisedPanel(handle);
-
-	if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(mousePos, track)) {
-		float newPercent = (mousePos.x - track.x) / track.width;
-
-		if (newPercent < 0.0f) newPercent = 0.0f;
-		if (newPercent > 1.0f) newPercent = 1.0f;
-
-		*value = min + (newPercent * (max - min));
-		changed = true;
-	}
-
-	return changed;
-}
-
-bool GuiCheckbox(Rectangle bounds, bool *value) {
-	bool changed = false;
-
-	Vector2 mousePos = GetMousePosition();
-	DrawSunkenPanel(bounds);
-
-	if (*value) {
-		DrawRectangleRec(PadAll(&bounds, 2), BLACK);
-	}
-
-	if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(mousePos, bounds)) {
-		*value = !(*value);
-		changed = true;
-	}
-
-	return changed;
-}
-
-bool GuiButton(Rectangle bounds, bool isActive) {
-	Vector2 mousePos = GetMousePosition();
-
-	bool isHovering = CheckCollisionPointRec(mousePos, bounds);
-	bool isDown = isHovering && IsMouseButtonDown(MOUSE_LEFT_BUTTON);
-	bool isClicked = isHovering && IsMouseButtonReleased(MOUSE_LEFT_BUTTON);
-
-	if (isActive || isDown || isClicked) DrawSunkenPanel(bounds);
-	else DrawRaisedPanel(bounds);	
-
-	return isClicked;
-}
-
-bool GuiButtonTxt(Rectangle bounds, const char *text, bool isActive) {
-	bool clicked = GuiButton(bounds, isActive);
-	int textWidth = MeasureText(text, 10);
-	DrawText(text, bounds.x + (bounds.width - textWidth) / 2, bounds.y + (bounds.height-12), 10, BLACK);
-	return clicked;
-}
-bool GuiButtonImg(Rectangle bounds, Texture2D tex, Rectangle texSource, bool isActive) {
-	bool clicked = GuiButton(bounds, isActive);
-	Vector2 iconPos = {
-		bounds.x + (bounds.width - texSource.width) / 2.0f,
-		bounds.y + (bounds.height - texSource.height) / 2.0f,
-	};
-
-	DrawTextureRec(tex, texSource, iconPos, WHITE);
-	return clicked;
-}
-
-bool GuiAccordeon(Rectangle bounds, int *active, const char **labels, int count, bool *isOpen) {
-	float itemHeight = bounds.height;
-	float totalHeight = itemHeight;
-
-	if (GuiButtonTxt(bounds, labels[*active], *isOpen)) {
-		*isOpen = !(*isOpen);
-	};
-
-	if (!(*isOpen)) return totalHeight;
-
-	for (int i = 0; i < count; i++) {
-		Rectangle item = { bounds.x + 8, bounds.y + totalHeight, bounds.width - 8, itemHeight };	
-		bool isSelected = (*active == i);
-		if (GuiButtonTxt(item, labels[i], isSelected)) {
-			*active = i;
-			*isOpen = false;
-		}
-
-		totalHeight += itemHeight;
-	}
-
-	return totalHeight;
-}
-
 // CANVAS MANAGEMENT
 
 Canvas CreateCanvas(Vector2 size, Color background) {
@@ -400,27 +285,25 @@ void DrawToolOptions(Rectangle rect, ToolboxState *state) {
 
 		switch (opt->type) {
 			case UI_SLIDER: {
-				GuiSlider(control, &opt->data.slider.value, opt->data.slider.min, opt->data.slider.max);
+				GuiSlider(opt->name, control, &opt->data.slider.value, opt->data.slider.min, opt->data.slider.max);
 				currentY += optHeight / 2 + padding;
 				break;
 			};
 			case UI_TOGGLE: {
 				Rectangle checkboxRec = CutLeft(&control, optHeight/2);
-				GuiCheckbox(checkboxRec, &opt->data.toggle.enabled);
+				GuiCheckbox(opt->name, checkboxRec, &opt->data.toggle.enabled);
  			  currentY += optHeight / 2 + padding;
 				break;
 			};
 			case UI_CHOICE: {
 				float consumed = GuiAccordeon(control, &opt->data.choice.active, opt->data.choice.labels, opt->data.choice.count, &opt->data.choice.isOpen);
-				 currentY += consumed + padding;
-				 break;
+			 	currentY += consumed + padding;
+				break;
 			}
 		}
 	}
 	EndScissorMode();
 }
-
-
 
 void DrawToolPreview(Rectangle rect, Canvas *canvas, ToolboxState *state) {
 	if (!state->isDrawing) return;
@@ -455,19 +338,19 @@ void DrawTopBar(Rectangle rect, Canvas *canvas, CanvasHistory *hist) {
 	Rectangle btnRedo  = CutLeft(&inner, 60); CutLeft(&inner, 4);
 	Rectangle btnClear = CutLeft(&inner, 60); CutLeft(&inner, 4);
 
-	if (GuiButtonTxt(btnSave, "Save", false)) {
+	if (GuiButtonTxt("Save", btnSave, false)) {
 		SaveCanvasToPNG(canvas);
 	}
-	if (GuiButtonTxt(btnLoad, "Load", false)) {
+	if (GuiButtonTxt("Load", btnLoad, false)) {
 		printf("Load!\n");
 	}
-	if (GuiButtonTxt(btnUndo, "Undo", false)) {
+	if (GuiButtonTxt("Undo", btnUndo, false)) {
 		LoadHistory(hist, canvas, -1);
 	}
-	if (GuiButtonTxt(btnRedo, "Redo", false)) {
+	if (GuiButtonTxt("Redo", btnRedo, false)) {
 		LoadHistory(hist, canvas, 1);
 	}
-	if (GuiButtonTxt(btnClear, "Clear", false)) {
+	if (GuiButtonTxt("Clear", btnClear, false)) {
 		BeginTextureMode(canvas->tex);
 		ClearBackground(canvas->background);
 		EndTextureMode();
@@ -480,7 +363,7 @@ void DrawToolbox(Rectangle rect, ToolboxState *state, Texture2D icons, int cols,
 
 	for (int i = 0; i < TOOL_COUNT; i++) {
 		Rectangle btnRect = GetGridRectCol(rect, i, cols, padding, btnSize, btnSize);
-		bool clicked = GuiButtonImg(btnRect, icons, state->tools[i].spriteCutout, state->selected == state->tools[i].id);
+		bool clicked = GuiButtonImg(TextFormat("ToolBtn_%d", i), btnRect, icons, state->tools[i].spriteCutout, state->selected == state->tools[i].id);
 		if (clicked) state->selected = state->tools[i].id;
 	}
 }
@@ -497,7 +380,7 @@ void DrawColorPalette(Rectangle rect, Canvas *canvas) {
 		Rectangle gridRect = GetGridRectRow(rect, i, rows, padding, swatchSize, swatchSize);
 		Rectangle swatch = PadAll(&gridRect, 2);
 
-		if (GuiButton(gridRect, ColorsEqual(canvas->current, PALETTE_COLORS[i]))) {
+		if (GuiButtonCore(TextFormat("SwatchBtn_%d", i), gridRect, ColorsEqual(canvas->current, PALETTE_COLORS[i]))) {
 			canvas->current = PALETTE_COLORS[i];
 		}
 		if (CheckCollisionPointRec(mousePos, gridRect) && IsMouseButtonReleased(MOUSE_RIGHT_BUTTON)) {
