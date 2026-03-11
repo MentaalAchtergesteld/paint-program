@@ -3,6 +3,49 @@
 
 #include "raylib.h"
 
+typedef enum {
+	CMD_PANEL_RAISED,
+	CMD_PANEL_SUNKEN,
+
+	CMD_RECT_FILL,
+	CMD_RECT_LINES,
+
+	CMD_TEXT,
+	CMD_IMAGE,
+
+	CMD_SCISSOR_BEGIN,
+	CMD_SCISSOR_END,
+
+	CMD_CUSTOM,
+} RenderCmdType;
+
+typedef struct {
+	RenderCmdType type;
+	Rectangle bounds;
+	Color color;
+
+	union {
+		struct {
+			const char *str;
+			int fontSize;
+		} text;
+
+		struct {
+			Texture2D tex;
+			Rectangle source;
+		} image;
+
+		struct {
+			int thickness;
+		} lines;
+
+		struct {
+			void (*callback)(Rectangle bounds, void *userData);
+			void *userData;
+		} custom;
+	};
+} RenderCommand;
+
 #define WIN_BG     (Color){ 212, 208, 200, 255 }
 #define WIN_HI     (Color){ 255, 255, 255, 255 }
 #define WIN_SHADOW (Color){ 128, 128, 128, 255 }
